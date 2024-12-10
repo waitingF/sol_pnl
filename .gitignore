@@ -1,0 +1,8 @@
+.venv
+.idea
+
+data
+data
+data/pools.json
+
+.env
