@@ -3,12 +3,12 @@ import json
 
 from tqdm import tqdm
 
-from config import *
+from src.utils.config import *
 from sqlalchemy import create_engine, Column, Integer, String, BigInteger, Double, Date, TIMESTAMP, Boolean, JSON, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-from sol_pnl.src.utils.config import PGHOST, PGDATABASE, PGUSER, PGPASSWORD
+from src.utils.config import PGHOST, PGDATABASE, PGUSER, PGPASSWORD
 
 # Do not expose your Neon credentials to the browser
 
@@ -29,11 +29,23 @@ DATABASE_URL = f"postgresql+psycopg2://{PGUSER}:{PGPASSWORD}@{PGHOST}:5432/{PGDA
 Base = declarative_base()
 
 
+class Token(Base):
+    __tablename__ = 'tokens'
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    address = Column(String(128), nullable=False)
+    symbol = Column(String(20))
+    name = Column(String(100))
+    total_supply = Column(Double)
+    decimals = Column(Integer)
+    coingecko_id = Column(String(100))
+
+
 class WalletTransaction(Base):
     __tablename__ = 'wallet_txn_events'
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     signature = Column(String(128), nullable=False)
     wallet_address = Column(String(128), nullable=False)
+    description = Column(String(2048))
     txn_type = Column(String(32))
     timestamp = Column(BigInteger)
     fee = Column(Double)
@@ -188,11 +200,21 @@ def get_date_before(date_str: str) -> str:
 
 
 def get_blocked_wallet_addresses():
+    session = Session()
     all_addresses = session.query(AccountInfo).where(AccountInfo.is_blocked.__eq__(True)).all()
     blocked_addresses = set()
     for addr in all_addresses:
         blocked_addresses.add(addr.wallet_address)
     return blocked_addresses
+
+
+def get_all_tokens_set():
+    session = Session()
+    all_tokens = session.query(Token).all()
+    token_set = set()
+    for token in all_tokens:
+        token_set.add(token.address)
+    return token_set
 
 
 def get_all_wallet_addresses(date_str: str):

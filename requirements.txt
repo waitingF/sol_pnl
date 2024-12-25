@@ -9,4 +9,6 @@ sqlalchemy
 selenium
 termcolor
 kafka-python
+python-psycopg2
+psycopg2-binary
 
