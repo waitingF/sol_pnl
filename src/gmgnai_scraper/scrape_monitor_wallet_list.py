@@ -1,6 +1,10 @@
+import sys
+import os
+print(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datetime import datetime
 
-from database_helper import write_wallet_pnl_to_postgresql, get_all_wallet_first_degrees, \
+from src.utils.database_helper import write_wallet_pnl_to_postgresql, get_all_wallet_first_degrees, \
     write_top_profit_wallet_pnl_to_postgresql, get_monitor_wallet_addresses
 from gmgn_scraper import gmgn_scrape
 

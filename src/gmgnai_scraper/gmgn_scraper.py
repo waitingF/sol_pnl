@@ -2,15 +2,13 @@ import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium_stealth import stealth
+from src.utils.config import *
 import json
 from datetime import datetime
-from tabulate import tabulate
 from termcolor import colored
+from tqdm import tqdm
 import time
 
-# Configuration
-API_URL = 'https://gmgn.ai/defi/quotation/v1/smartmoney/sol/walletNew/'
 
 def setup_driver():
     options = uc.ChromeOptions()
@@ -18,58 +16,20 @@ def setup_driver():
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--disable-setuid-sandbox")
-    # options.add_argument("--start-maximized")
-    # options.add_argument('--blink-settings=imagesEnabled=false')
+    # options.add_argument("--headless")
     
     # Explicitly set the Chrome version (update this to match your Chrome version)
     uc.TARGET_VERSION = 131
 
     driver = uc.Chrome(options=options, version_main=131, use_subprocess=False)
-
-    # stealth(driver,
-    #         languages=["en-US", "en"],
-    #         vendor="Google Inc.",
-    #         platform="Windows",
-    #         webgl_vendor="Intel Inc.",
-    #         renderer="Intel Iris OpenGL Engine",
-    #         fix_hairline=True,
-    #         )
-
-    # driver.get("https://bot.sannysoft.com/")
-
-    # driver.execute_script('''window.open("http://nowsecure.nl","_blank");''')  # open page in new tab
-    # time.sleep(5)  # wait until page has loaded
-    # driver.switch_to.window(window_name=driver.window_handles[0])  # switch to first tab
-    # driver.close()  # close first tab
-    # driver.switch_to.window(window_name=driver.window_handles[0])  # switch back to new tab
-    # time.sleep(2)
-    # driver.get("https://google.com")
-    # time.sleep(2)
-    # driver.execute_script("window.open('https://www.scrapingcourse.com/cloudflare-challenge', '_blank')")
-    # time.sleep(15)
-    # driver.switch_to.window(driver.window_handles[1])
-    #
-    # # driver.get("https://nowsecure.nl")  # this should pass cloudflare captchas now
-    #
-    # time.sleep(2000)
-    # driver.quit()
-    # exit()
     return driver
 
-def get_period():
-    return '7d'
-    print('Welcome to Solana Wallet Checker!')
-    period = input('How many days do you want the winrate? 7d/30d\nExample: 7d\n> ').strip()
-    if period not in ['7d', '30d']:
-        print("Invalid input. Please enter '7d' or '30d'.")
-        exit()
-    return period
 
-def fetch_wallet_data(driver, wallet_address, period):
-    url = f'{API_URL}{wallet_address}?period={period}'
+def fetch_wallet_data(driver, wallet_address):
+    url = f'{API_URL}{wallet_address}'
     try:
         driver.get(url)
-        time.sleep(2)  # Wait for 5 seconds to allow the page to load
+        time.sleep(0.1)  # Wait for 5 seconds to allow the page to load
         
         # Wait for the pre tag to be present
         WebDriverWait(driver, 20).until(
@@ -122,33 +82,36 @@ def process_data(data, wallet_address, period):
             print(f'ERROR: Make sure your list is correct.')
     return None
 
-def main():
-    period = get_period()
+
+def gmgn_scrape(date_str: str, is_monitor_list: bool):
+    if date_str is None:
+        date_str = datetime.now().strftime('%Y-%m-%d')
+    start_time = datetime.now()
+    print(f'process date: {datetime.now()}')
+    wallet_list_path = get_wallet_list_path(date_str, is_monitor_list=is_monitor_list)
+    print(f'wallet_list: {wallet_list_path}')
+
+    raw_data_file_path = get_raw_data_file_path(date_str, is_monitor_list=is_monitor_list)
+    print(f'output file: {raw_data_file_path}')
+
     driver = setup_driver()
 
     try:
-        with open('list.txt', 'r') as file:
+        with open(wallet_list_path, 'r') as file:
             wallet_addresses = file.read().strip().split('\n')
-        
-        results = []
-        for wallet_address in wallet_addresses:
-            if wallet_address.strip():
-                raw_data = fetch_wallet_data(driver, wallet_address, period)
-                if raw_data and raw_data['data']:
-                    actual_data = raw_data['data']
-                    actual_data['wallet'] = wallet_address
-                    with open('raw_data.txt', 'a') as file:
+            wallet_addresses = set(wallet_addresses)
+            wallet_addresses = list(wallet_addresses)
+            print(f'wallet count {len(wallet_addresses)}')
+
+        with open(raw_data_file_path, 'a') as file:
+            print(f'processing {len(wallet_addresses)} wallet address at {datetime.now()}')
+            for wallet_address in tqdm(wallet_addresses, desc="wallet pnl scrape progress"):
+                if wallet_address.strip():
+                    raw_data = fetch_wallet_data(driver, wallet_address)
+                    if raw_data and raw_data['data']:
+                        actual_data = raw_data['data']
+                        actual_data['wallet'] = wallet_address
                         file.write(json.dumps(actual_data) + '\n')
-
-                result = process_data(raw_data, wallet_address, period)
-                if result: # and result['Winrate Value'] > 60:  # Save only if winrate is above 60%
-                    results.append(result)
-                    print(tabulate([result], headers="keys", tablefmt="grid"))
-                    
-                    with open('results.txt', 'a') as file:
-                        result_to_save = {k: v for k, v in result.items() if k != 'Winrate Value'}
-                        file.write(json.dumps(result_to_save, indent=4) + '\n')
-
     except FileNotFoundError:
         print("The file 'list.txt' was not found.")
     except Exception as e:
@@ -156,5 +119,9 @@ def main():
     finally:
         driver.quit()
 
+    end_time = datetime.now()
+    print(f'total process time: {end_time - start_time}')
+
+
 if __name__ == "__main__":
-    main()
+    gmgn_scrape(None)

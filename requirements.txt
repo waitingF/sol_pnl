@@ -11,4 +11,6 @@ termcolor
 kafka-python
 python-psycopg2
 psycopg2-binary
-
+undetected_chromedriver
+selenium_stealth
+tabulate
